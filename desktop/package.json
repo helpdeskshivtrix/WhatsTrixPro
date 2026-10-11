@@ -1,0 +1,22 @@
+{
+  "name": "whatstrix",
+  "productName": "WhatsTrix",
+  "version": "2.0.0",
+  "description": "Private end-to-end encrypted rooms for chat, calls and file sharing.",
+  "author": "ShivTrix",
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "devDependencies": {
+    "electron": "^41.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.shivtrix.whatstrix",
+    "productName": "WhatsTrix",
+    "files": ["main.js", "www/**/*"],
+    "directories": { "output": "dist" },
+    "win": { "icon": "www/icon-512.png", "target": ["nsis", "portable"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "WhatsTrix-Setup-${version}.${ext}" },
+    "portable": { "artifactName": "WhatsTrix-Portable-${version}.${ext}" }
+  }
+}

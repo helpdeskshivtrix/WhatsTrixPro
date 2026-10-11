@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">
+<title>WhatsTrix push keys</title>
+<style>
+:root{--bl:#2859e0;--bl2:#5fd2f9;--gd:#e1a142;--ln:#1d2f6b;--t2:#8390b0}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#000;color:#eaf0ff;font:500 15px/1.5 "Segoe UI",system-ui,sans-serif;display:grid;place-items:center;padding:18px}
+main{width:min(640px,100%);background:#03050b;border:1px solid var(--ln);border-radius:20px;padding:22px;box-shadow:0 0 44px rgba(40,89,224,.28)}
+h1{margin:0 0 4px;font-size:22px;background:linear-gradient(90deg,var(--bl),var(--bl2) 60%,var(--gd));-webkit-background-clip:text;background-clip:text;color:transparent}
+p{color:var(--t2);margin:6px 0 14px}label{display:block;font-weight:700;margin:14px 0 6px}
+textarea{width:100%;background:#080d1c;border:1px solid var(--ln);border-radius:12px;color:#eaf0ff;padding:10px;font:13px/1.4 ui-monospace,Consolas,monospace;resize:none;height:62px;word-break:break-all}
+button{background:linear-gradient(135deg,#1c46c4,var(--bl));border:1px solid #5a82ff;color:#fff;border-radius:12px;padding:10px 16px;font:700 14px inherit;cursor:pointer}
+button.s{background:#080d1c;border-color:var(--ln);font-weight:600;padding:6px 12px;margin-top:6px}
+.w{color:#ffb3bd;border:1px solid #6b2330;border-radius:12px;padding:10px 12px;background:#1d0a10;margin-top:16px}
+</style></head><body><main>
+<h1>WhatsTrix push keys</h1>
+<p>Makes the two keys your push server needs. They are created here in your browser and are not sent anywhere.</p>
+<button id="g">Generate new keys</button>
+<label for="pub">VAPID_PUBLIC</label><textarea id="pub" readonly></textarea><button class="s" data-c="pub">Copy</button>
+<label for="prv">VAPID_PRIVATE</label><textarea id="prv" readonly></textarea><button class="s" data-c="prv">Copy</button>
+<div class="w">Paste both into your push server's environment variables. Keep the private key secret and never put it in your repository. If you generate new keys later, everyone just has to open the app once to re-subscribe.</div>
+<script>
+const u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const d=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+document.getElementById('g').onclick=async()=>{
+  const k=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,[ 'sign','verify']),j=await crypto.subtle.exportKey('jwk',k.privateKey);
+  const raw=new Uint8Array(65);raw[0]=4;raw.set(d(j.x),1);raw.set(d(j.y),33);
+  document.getElementById('pub').value=u(raw);document.getElementById('prv').value=j.d};
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{const t=document.getElementById(b.dataset.c);if(t.value){navigator.clipboard.writeText(t.value);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200)}});
+</script></main></body></html>

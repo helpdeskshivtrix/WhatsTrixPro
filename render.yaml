@@ -1,0 +1,24 @@
+# One-click setup for the push server on Render (free plan works).
+# Render dashboard -> New -> Blueprint -> pick this repository -> Apply.
+services:
+  - type: web
+    name: whatstrix-push
+    runtime: node
+    plan: free
+    rootDir: push-server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: VAPID_PUBLIC            # from vapid.html
+        sync: false
+      - key: VAPID_PRIVATE           # from vapid.html (keep secret)
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL  # free database at upstash.com, keeps subscriptions when the server sleeps
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:you@example.com
+      - key: ALLOWED_ORIGINS
+        value: https://helpdeskshivtrix.github.io

@@ -1,0 +1,9 @@
+{
+  "name": "whatstrix-push-server",
+  "version": "1.0.0",
+  "description": "Web Push relay for WhatsTrix. Stores push subscriptions and sends alerts; never sees message text.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "web-push": "^3.6.7" }
+}
