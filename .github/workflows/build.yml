@@ -1,0 +1,144 @@
+name: Build WhatsTrix apps (Android APK + Windows EXE)
+
+# Run it by hand: Actions tab -> "Build WhatsTrix apps" -> Run workflow.
+# Pushing a tag such as v2.0.1 does the same.
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish the APK and EXE as a GitHub Release"
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Copy the web app into www/ and set the public invite address
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"; REPO="${GITHUB_REPOSITORY#*/}"
+          if [ "${REPO,,}" = "$OWNER.github.io" ]; then PUB="https://$OWNER.github.io/"; else PUB="https://$OWNER.github.io/$REPO/"; fi
+          mkdir www
+          cp index.html config.js manifest.json sw.js icon.svg *.png www/
+          sed -i "s#const PUBLIC_URL='';#const PUBLIC_URL='$PUB';#" www/index.html
+          grep -c "const PUBLIC_URL='https" www/index.html
+
+      - name: Create the Capacitor Android project
+        run: |
+          npm init -y
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/app@8 @capacitor/local-notifications@8 @capacitor/filesystem@8 @capacitor/share@8
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "com.shivtrix.whatstrix",
+            "appName": "WhatsTrix",
+            "webDir": "www",
+            "backgroundColor": "#000000",
+            "server": { "androidScheme": "https" }
+          }
+          JSON
+          npx cap add android
+          npx cap sync android
+
+      - name: Permissions, icons and splash
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.microphone" android:required="false" />#' "$M"
+          grep -c "RECORD_AUDIO" "$M"
+          python3 -m venv .venv
+          .venv/bin/pip install pillow
+          .venv/bin/python tools/android_icons.py android/app/src/main/res www
+
+      - name: Make sure Android licenses are accepted
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Collect the APK
+        run: |
+          mkdir out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/WhatsTrix-android.apk
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhatsTrix-android
+          path: out/WhatsTrix-android.apk
+
+  windows:
+    name: Windows EXE
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Copy the web app into desktop/www/ and set the public invite address
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"; REPO="${GITHUB_REPOSITORY#*/}"
+          if [ "${REPO,,}" = "$OWNER.github.io" ]; then PUB="https://$OWNER.github.io/"; else PUB="https://$OWNER.github.io/$REPO/"; fi
+          mkdir desktop/www
+          cp index.html config.js manifest.json icon.svg *.png desktop/www/
+          sed -i "s#const PUBLIC_URL='';#const PUBLIC_URL='$PUB';#" desktop/www/index.html
+          grep -c "const PUBLIC_URL='https" desktop/www/index.html
+
+      - name: Build installer and portable EXE
+        working-directory: desktop
+        run: |
+          npm install
+          npx electron-builder --win nsis portable --x64 --publish never
+
+      - name: Collect the EXE files
+        run: |
+          mkdir out
+          cp desktop/dist/*.exe out/
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WhatsTrix-windows
+          path: out/*.exe
+
+  release:
+    name: Publish release
+    needs: [android, windows]
+    if: github.event_name == 'push' || inputs.publish_release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then TAG="$GITHUB_REF_NAME"; else TAG="v2.0.$GITHUB_RUN_NUMBER"; fi
+          ls -l out
+          gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --title "WhatsTrix $TAG" --notes "Android APK (WhatsTrix-android.apk) and Windows installer / portable EXE. Built from the code in this repository."
