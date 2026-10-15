@@ -1,7 +1,5 @@
 name: Publish website
 
-# Publishes only the website files (not the Android/Windows/server code) to GitHub Pages.
-# Needs: Settings -> Pages -> Source = "GitHub Actions".
 on:
   push:
     branches: [main]
